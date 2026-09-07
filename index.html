@@ -96,7 +96,7 @@
     display:flex; align-items:center; justify-content:center;
     padding: 0 16px;
   }
-  #game-staff{ display:flex; align-items:center; justify-content:center; }
+  #game-staff{ display:flex; align-items:center; justify-content:center; min-height:150px; }
   .staff-mini{ display:flex; align-items:center; justify-content:center; width:100%; min-height: 105px; overflow: visible; }
   .staff-mini svg, #game-staff svg{ max-width:100%; height:auto; display:block; overflow: visible; }
 
@@ -122,6 +122,20 @@
   .pkey.white{ background: linear-gradient(180deg, var(--ivory) 0%, #EFE8D8 100%); border: 1px solid #B9AF9C; z-index:1; }
   .pkey.black{ background: linear-gradient(180deg, #2A231D 0%, var(--ebony) 100%); border: 1px solid #000; z-index:2; }
   .pkey:active{ filter: brightness(0.92); }
+  .pkey-label{
+    position:absolute;
+    bottom:8px;
+    left:0;
+    right:0;
+    text-align:center;
+    font-family:'Inter', sans-serif;
+    font-size:0.55rem;
+    font-weight:700;
+    letter-spacing:0.02em;
+    color: var(--panel-line);
+    pointer-events:none;
+    user-select:none;
+  }
 
   /* ---------- Result / review screens ---------- */
   .result-screen{ margin:auto; text-align:center; padding: 40px 20px; max-width: 480px; }
@@ -362,7 +376,8 @@
     lastScoredTarget: null, // level 5 only: which target most recently gained a point
     currentQuestion: null,
     answered: false,
-    distractorTimer: null
+    distractorTimer: null,
+    clearTimer: null
   };
 
   function showScreen(id){
@@ -411,6 +426,7 @@
 
     var whites = KEYBOARD_LAYOUT.keys.filter(function(k){ return k.type === 'white'; });
     var blacks = KEYBOARD_LAYOUT.keys.filter(function(k){ return k.type === 'black'; });
+    var leftmostName = whites[0].name; // C4 — leftmost key on the keyboard
 
     whites.concat(blacks).forEach(function(k){
       var el = document.createElement('div');
@@ -419,6 +435,12 @@
       el.style.width = (k.type === 'white' ? WHITE_W : BLACK_W) + 'px';
       el.style.height = (k.type === 'white' ? WHITE_H : BLACK_H) + 'px';
       el.dataset.note = k.name;
+      if(k.name === leftmostName){
+        var label = document.createElement('div');
+        label.className = 'pkey-label';
+        label.textContent = 'M.C.';
+        el.appendChild(label);
+      }
       el.addEventListener('click', function(){ handleKeyClick(k.name); });
       keysWrap.appendChild(el);
     });
@@ -458,6 +480,7 @@
     state.score = 0;
     state.answered = false;
     if(state.distractorTimer){ clearTimeout(state.distractorTimer); state.distractorTimer = null; }
+    if(state.clearTimer){ clearTimeout(state.clearTimer); state.clearTimer = null; }
 
     if(level === 5){
       state.counts = { F4:0, A4:0, C5:0, E5:0 };
@@ -476,23 +499,49 @@
     showNextQuestion();
   }
 
+  // Levels 1-4 only: once the player has 5+ points, target notes appear under a
+  // 2-second time limit — missing the window costs a point, just like a wrong click.
+  function isTimedFinalStretch(){
+    return state.level >= 1 && state.level <= 4 && state.score >= 5;
+  }
+
   function showNextQuestion(){
     if(state.distractorTimer){ clearTimeout(state.distractorTimer); state.distractorTimer = null; }
-    state.answered = false;
+    if(state.clearTimer){ clearTimeout(state.clearTimer); state.clearTimer = null; }
 
-    var q = (state.level === 5) ? pickNoteForLevel5(state.activeTargets) : pickNoteForLevel(state.level);
-    state.currentQuestion = q;
+    // Block input and briefly blank the staff so back-to-back repeats of the
+    // same note are still visually obvious as a "new" question.
+    state.answered = true;
+    document.getElementById('game-staff').innerHTML = '';
 
-    vfRenderStaff(document.getElementById('game-staff'), [q.note], q.clef, 'large');
-    repositionKeyboard();
+    state.clearTimer = setTimeout(function(){
+      state.clearTimer = null;
+      state.answered = false;
 
-    if(!q.isTarget){
-      state.distractorTimer = setTimeout(function(){
-        if(state.answered) return;
-        state.answered = true;
-        showNextQuestion();
-      }, 2000);
-    }
+      var q = (state.level === 5) ? pickNoteForLevel5(state.activeTargets) : pickNoteForLevel(state.level);
+      state.currentQuestion = q;
+
+      vfRenderStaff(document.getElementById('game-staff'), [q.note], q.clef, 'large');
+      repositionKeyboard();
+
+      if(!q.isTarget){
+        state.distractorTimer = setTimeout(function(){
+          if(state.answered) return;
+          state.answered = true;
+          showNextQuestion();
+        }, 2000);
+      } else if(isTimedFinalStretch()){
+        state.distractorTimer = setTimeout(function(){
+          if(state.answered) return;
+          state.answered = true;
+          state.score = Math.max(0, state.score - 1);
+          updateScoreArea();
+          flashPiano('bad', function(){
+            showNextQuestion();
+          });
+        }, 2000);
+      }
+    }, 100);
   }
 
   function refreshActiveTargets(){
@@ -548,6 +597,7 @@
 
   function endInSuccess(){
     if(state.distractorTimer){ clearTimeout(state.distractorTimer); state.distractorTimer = null; }
+    if(state.clearTimer){ clearTimeout(state.clearTimer); state.clearTimer = null; }
     var detail = document.getElementById('success-detail');
     detail.textContent = (state.level === 5)
       ? 'You scored 5 points on F4, A4, C5, and E5.'
@@ -562,6 +612,7 @@
   // ================= Wiring =================
   document.getElementById('quit-btn').addEventListener('click', function(){
     if(state.distractorTimer){ clearTimeout(state.distractorTimer); state.distractorTimer = null; }
+    if(state.clearTimer){ clearTimeout(state.clearTimer); state.clearTimer = null; }
     showScreen('screen-home');
   });
   document.getElementById('success-home-btn').addEventListener('click', function(){ showScreen('screen-home'); });
