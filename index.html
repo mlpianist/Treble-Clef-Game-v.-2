@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Treble Clef Game</title>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/vexflow@4.2.3/build/cjs/vexflow.js"></script>
+<style>
+  :root{
+    --sky-top: #FFF3D6;
+    --sky-bottom: #CFF1FF;
+    --ink: #2B2250;
+    --ink-soft: #4C4270;
+    --card: #FFFFFF;
+    --card-line: #FFE2A8;
+    --sun: #FFC93C;
+    --sun-deep: #F5A623;
+    --coral: #FF6B4A;
+    --coral-deep: #E6532F;
+    --mint: #3DDC97;
+    --mint-deep: #23B378;
+    --grape: #B15DFF;
+    --good: #3DDC97;
+    --bad: #FF6B4A;
+    --key-white: #FFFDF7;
+    --key-white-edge: #F0C9A0;
+    --key-black: #4C4270;
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  body{
+    font-family:'Nunito', sans-serif;
+    background: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-bottom) 100%);
+    color: var(--ink);
+    min-height:100vh;
+  }
+  #app{ width:100%; min-height:100vh; display:flex; flex-direction:column; }
+  .screen{ display:none; flex:1; flex-direction:column; }
+  .screen.active{ display:flex; animation: rise .4s cubic-bezier(.2,.7,.3,1); }
+  @keyframes rise{ from{ opacity:0; transform: translateY(10px); } to{ opacity:1; transform:none; } }
+
+  h1{ font-family:'Baloo 2', sans-serif; font-weight:700; font-size: 2.4rem; letter-spacing:-0.01em; color: var(--coral-deep); }
+  .subtitle{ color: var(--ink-soft); font-size: 1.02rem; margin-top: 8px; line-height:1.5; font-weight:600; }
+
+  /* ---------- Home ---------- */
+  #screen-home{ padding: 40px 24px 40px; max-width: 620px; margin: 0 auto; width:100%; }
+  .home-header{ margin-bottom: 30px; text-align:center; }
+  .home-header .note-doodle{ font-size:2.4rem; display:block; margin-bottom:6px; }
+  .level-stack{ display:flex; flex-direction:column; gap: 16px; }
+  .level-card{
+    background: var(--card);
+    border: 3px solid var(--card-line);
+    border-radius: 22px;
+    padding: 22px 22px;
+    cursor:pointer;
+    display:flex; flex-direction:column; gap:6px;
+    transition: border-color .2s ease, transform .15s ease, box-shadow .2s ease;
+    box-shadow: 0 6px 0 var(--card-line);
+  }
+  .level-card:hover{ transform: translateY(-3px); box-shadow: 0 9px 0 var(--card-line); }
+  .level-card:active{ transform: translateY(2px); box-shadow: 0 2px 0 var(--card-line); }
+  .level-card .level-name{ font-family:'Baloo 2', sans-serif; font-weight:700; font-size:1.4rem; color: var(--coral-deep); }
+  .level-card .level-desc{ color: var(--ink-soft); font-size:0.95rem; font-weight:600; }
+  .level-card.level-2{ border-color:#E4CBFF; box-shadow: 0 6px 0 #E4CBFF; }
+  .level-card.level-2:hover{ box-shadow: 0 9px 0 #E4CBFF; }
+  .level-card.level-2 .level-name{ color: var(--grape); }
+
+  /* ---------- Game screen ---------- */
+  #screen-game{ height:100vh; }
+  .game-topbar{
+    display:flex; align-items:flex-start; justify-content:space-between;
+    padding: 16px 20px 6px;
+    gap: 12px;
+  }
+  .text-btn{ background: var(--card); border: 2px solid var(--card-line); border-radius: 999px; color: var(--coral-deep); font-family:'Nunito', sans-serif; font-weight:700; font-size:0.88rem; cursor:pointer; padding:8px 16px; white-space:nowrap; }
+  .text-btn:hover{ background:#FFF6E2; }
+
+  .tracker-wrap{ flex:1; display:flex; justify-content:flex-end; }
+  .tracker-grid{ display:flex; flex-wrap:wrap; gap:6px; justify-content:flex-end; max-width: 100%; }
+  .tracker-pill{
+    background: var(--card);
+    border: 2px solid var(--card-line);
+    border-radius: 999px;
+    padding: 4px 9px;
+    text-align:center;
+    font-family:'Baloo 2', sans-serif;
+    font-size: 0.72rem;
+    font-weight:700;
+    color: var(--ink-soft);
+    transition: background .2s ease, color .2s ease, border-color .2s ease;
+  }
+  .tracker-pill.done{ background: var(--mint); border-color: var(--mint-deep); color:#0E4A34; }
+
+  .staff-area{
+    height: 32vh;
+    min-height: 150px;
+    display:flex; align-items:center; justify-content:center;
+    padding: 0 16px;
+  }
+  .staff-mini{ display:flex; align-items:center; justify-content:center; width:100%; min-height: 140px; overflow: visible; }
+  .staff-mini svg{ max-width:100%; height:auto; display:block; overflow: visible; }
+
+  .playfield{
+    position: relative;
+    flex: 1;
+    overflow: hidden;
+    margin: 0 8px 16px;
+  }
+  #piano{
+    position:absolute;
+    top:0; left:0;
+    display:flex; align-items:center; justify-content:center;
+    background: linear-gradient(180deg, #FFE9BE 0%, #FFD98F 100%);
+    border: 3px solid var(--sun-deep);
+    border-radius: 18px;
+    transition: background .16s ease, top .35s ease, left .35s ease;
+  }
+  #piano.flash-good{ background: var(--good); border-color: var(--mint-deep); }
+  #piano.flash-bad{ background: var(--bad); border-color: var(--coral-deep); }
+  #piano-keys{ position:relative; }
+  .pkey{ position:absolute; top:0; border-radius: 0 0 6px 6px; box-sizing:border-box; cursor:pointer; }
+  .pkey.white{ background: linear-gradient(180deg, var(--key-white) 0%, #FBE9CF 100%); border: 1px solid var(--key-white-edge); z-index:1; }
+  .pkey.black{ background: linear-gradient(180deg, #5C5182 0%, var(--key-black) 100%); border: 1px solid #2E274A; z-index:2; }
+  .pkey:active{ filter: brightness(0.92); }
+  .pkey-label{
+    position:absolute;
+    bottom:8px;
+    left:0;
+    right:0;
+    text-align:center;
+    font-family:'Nunito', sans-serif;
+    font-size:0.52rem;
+    font-weight:800;
+    color: var(--sun-deep);
+    pointer-events:none;
+    user-select:none;
+  }
+
+  /* ---------- Result screen ---------- */
+  .result-screen{ margin:auto; text-align:center; padding: 40px 20px; max-width: 480px; }
+  .result-screen .big-emoji{ font-size: 3rem; display:block; margin-bottom: 10px; }
+  .result-screen h1{ font-size: 2.2rem; }
+  .result-screen p{ color: var(--ink-soft); margin-top: 12px; font-size: 1.05rem; font-weight:600; }
+  .result-actions{ margin-top: 28px; }
+  .timestamp{ margin-top: 24px; font-size: 0.78rem; color: #B7ADD6; font-weight:600; }
+  .primary-btn{
+    font-family:'Baloo 2', sans-serif; font-weight:700; font-size:1.05rem;
+    padding: 13px 30px; border-radius: 999px; cursor:pointer; border:none;
+    background: var(--coral); color: #fff;
+    box-shadow: 0 5px 0 var(--coral-deep);
+  }
+  .primary-btn:hover{ background:#FF7B5C; }
+  .primary-btn:active{ transform: translateY(3px); box-shadow: 0 2px 0 var(--coral-deep); }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- HOME -->
+  <section id="screen-home" class="screen active">
+    <div class="home-header">
+      <span class="note-doodle">🎵🎹🎶</span>
+      <h1>Treble Clef Game</h1>
+      <p class="subtitle">Read the note on the grand staff, then find it on the keyboard.</p>
+    </div>
+    <div class="level-stack" id="level-stack"></div>
+  </section>
+
+  <!-- GAME -->
+  <section id="screen-game" class="screen">
+    <div class="game-topbar">
+      <button class="text-btn" id="quit-btn">&larr; Levels</button>
+      <div class="tracker-wrap"><div class="tracker-grid" id="tracker-grid"></div></div>
+    </div>
+    <div class="staff-area">
+      <div id="game-staff" class="staff-mini"></div>
+    </div>
+    <div class="playfield" id="playfield">
+      <div id="piano"><div id="piano-keys"></div></div>
+    </div>
+  </section>
+
+  <!-- SUCCESS -->
+  <section id="screen-success" class="screen">
+    <div class="result-screen">
+      <span class="big-emoji">🏆</span>
+      <h1>You did it!</h1>
+      <p id="success-detail"></p>
+      <div class="result-actions">
+        <button class="primary-btn" id="success-home-btn">Back to levels</button>
+      </div>
+      <p id="success-timestamp" class="timestamp"></p>
+    </div>
+  </section>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ================= Note pools =================
+  // Treble target notes: every white note from E4 up to F5 (9 notes).
+  var TARGET_NOTES = ['E4','F4','G4','A4','B4','C5','D5','E5','F5'];
+  // Bass distractor notes: every white note from G2 up to A3 (9 notes).
+  var BASS_NOTES = ['G2','A2','B2','C3','D3','E3','F3','G3','A3'];
+  var DURATIONS = ['w','h','q','8','16'];
+
+  function randChoice(arr){ return arr[Math.floor(Math.random() * arr.length)]; }
+
+  function pickNote(activeTargets){
+    var r = Math.random();
+    if(r < 0.75) return { note: randChoice(activeTargets), clef: 'treble', isTarget: true };
+    return { note: randChoice(BASS_NOTES), clef: 'bass', isTarget: false };
+  }
+
+  // ================= Keyboard (G2 - F5, chromatic, with black keys) =================
+  var NOTE_LETTERS = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+
+  function noteChromaticIndex(name){
+    var m = name.match(/^([A-G]#?)(\d)$/);
+    return parseInt(m[2], 10) * 12 + NOTE_LETTERS.indexOf(m[1]);
+  }
+
+  function buildChromaticRange(startNote, endNote){
+    var startIdx = noteChromaticIndex(startNote), endIdx = noteChromaticIndex(endNote);
+    var keys = [];
+    for(var i = startIdx; i <= endIdx; i++){
+      var octave = Math.floor(i / 12);
+      var letter = NOTE_LETTERS[i % 12];
+      var type = letter.indexOf('#') >= 0 ? 'black' : 'white';
+      keys.push({ name: letter + octave, letter: letter[0], octave: octave, type: type });
+    }
+    return keys;
+  }
+
+  var CHROMATIC = buildChromaticRange('E4', 'F5');
+
+  var WHITE_W = 34, WHITE_H = 148, WHITE_SPACING = 36, BLACK_W = 20, BLACK_H = 92, BLACK_OFFSET = 25;
+
+  function buildKeyboardLayout(){
+    var whiteX = 0, lastWhiteX = 0;
+    var laid = CHROMATIC.map(function(k){
+      if(k.type === 'white'){
+        var pos = whiteX;
+        lastWhiteX = whiteX;
+        whiteX += WHITE_SPACING;
+        return { name:k.name, letter:k.letter, octave:k.octave, type:k.type, pos:pos };
+      } else {
+        return { name:k.name, letter:k.letter, octave:k.octave, type:k.type, pos: lastWhiteX + BLACK_OFFSET };
+      }
+    });
+    return { keys: laid, width: whiteX - (WHITE_SPACING - WHITE_W) };
+  }
+  var KEYBOARD_LAYOUT = buildKeyboardLayout();
+  var KEYBOARD_WIDTH = KEYBOARD_LAYOUT.width;
+
+  // ================= Audio =================
+  var audioCtx = null;
+  function ensureAudio(){
+    if(!audioCtx){ audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+    if(audioCtx.state === 'suspended'){ audioCtx.resume(); }
+  }
+  function noteToFreq(name){
+    var m = name.match(/^([A-G]#?)(\d)$/);
+    var letter = m[1], octave = parseInt(m[2], 10);
+    var midi = (octave + 1) * 12 + NOTE_LETTERS.indexOf(letter);
+    return 440 * Math.pow(2, (midi - 69) / 12);
+  }
+  function playTone(freq, duration){
+    if(!audioCtx) return;
+    var osc = audioCtx.createOscillator();
+    var gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+    gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.start(); osc.stop(audioCtx.currentTime + duration);
+  }
+  document.addEventListener('click', function initAudioOnce(){
+    ensureAudio();
+    document.removeEventListener('click', initAudioOnce);
+  });
+
+  // Sound-effect mp3s, expected next to this HTML file. Missing files fail silently.
+  var SFX = {
+    correct: new Audio('correct.mp3'),
+    wrong: new Audio('wrong.mp3'),
+    applause: new Audio('applause.mp3')
+  };
+  function playSfx(name){
+    var base = SFX[name];
+    if(!base) return;
+    var el = base.cloneNode();
+    el.play().catch(function(){ /* ignore autoplay/missing-file errors */ });
+  }
+
+  // ================= Staff rendering (VexFlow) =================
+  var VF = Vex.Flow;
+  var VF_CFG = { width:300, height:170, staveX:10, staveY:45, staveWidth:260 };
+
+  function toVexKey(noteName){
+    var m = noteName.match(/^([A-G]#?)(\d)$/);
+    return m[1].toLowerCase() + '/' + m[2];
+  }
+
+  function vfRenderStaff(container, noteName, clef, duration){
+    container.innerHTML = '';
+    var renderer = new VF.Renderer(container, VF.Renderer.Backends.SVG);
+    renderer.resize(VF_CFG.width, VF_CFG.height);
+    var context = renderer.getContext();
+    context.setFillStyle('#4C4270');
+    context.setStrokeStyle('#4C4270');
+
+    var stave = new VF.Stave(VF_CFG.staveX, VF_CFG.staveY, VF_CFG.staveWidth);
+    stave.addClef(clef);
+    stave.setContext(context).draw();
+
+    var note = new VF.StaveNote({ clef: clef, keys: [toVexKey(noteName)], duration: duration });
+    note.setStyle({ fillStyle: '#FF6B4A', strokeStyle: '#FF6B4A' });
+
+    VF.Formatter.FormatAndDraw(context, stave, [note]);
+  }
+
+  // ================= Level definitions =================
+  var LEVEL_DEFS = [
+    { level:1, name:'Level 1', desc:"Learn every note, mistakes only cost you that note's own progress." },
+    { level:2, name:'Level 2', desc:'Same notes, but one mistake sends ALL your progress back to zero!' }
+  ];
+
+  function buildHomeScreen(){
+    var stack = document.getElementById('level-stack');
+    stack.innerHTML = '';
+    LEVEL_DEFS.forEach(function(def){
+      var card = document.createElement('div');
+      card.className = 'level-card' + (def.level === 2 ? ' level-2' : '');
+      var name = document.createElement('div');
+      name.className = 'level-name';
+      name.textContent = def.name;
+      var desc = document.createElement('div');
+      desc.className = 'level-desc';
+      desc.textContent = def.desc;
+      card.appendChild(name);
+      card.appendChild(desc);
+      card.addEventListener('click', function(){ startLevel(def.level); });
+      stack.appendChild(card);
+    });
+  }
+
+  // ================= Game state =================
+  var state = {
+    level: 1,
+    counts: null,        // { E4:0, F4:0, ... }
+    activeTargets: null,
+    lastScoredTarget: null,
+    currentQuestion: null,
+    answered: false,
+    distractorTimer: null,
+    clearTimer: null
+  };
+
+  function showScreen(id){
+    document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('active'); });
+    document.getElementById(id).classList.add('active');
+  }
+
+  function renderTracker(){
+    var grid = document.getElementById('tracker-grid');
+    grid.innerHTML = '';
+    TARGET_NOTES.forEach(function(n){
+      var pill = document.createElement('div');
+      pill.className = 'tracker-pill';
+      pill.id = 'tracker-' + n;
+      pill.textContent = n + ' ' + state.counts[n] + '/5';
+      if(state.counts[n] >= 5) pill.classList.add('done');
+      grid.appendChild(pill);
+    });
+  }
+
+  function updateTracker(){
+    TARGET_NOTES.forEach(function(n){
+      var el = document.getElementById('tracker-' + n);
+      if(!el) return;
+      el.textContent = n + ' ' + state.counts[n] + '/5';
+      el.classList.toggle('done', state.counts[n] >= 5);
+    });
+  }
+
+  function renderKeyboard(){
+    var piano = document.getElementById('piano');
+    var keysWrap = document.getElementById('piano-keys');
+    piano.style.width = (KEYBOARD_WIDTH + 20) + 'px';
+    piano.style.height = (WHITE_H + 20) + 'px';
+    keysWrap.style.width = KEYBOARD_WIDTH + 'px';
+    keysWrap.style.height = WHITE_H + 'px';
+    keysWrap.innerHTML = '';
+
+    var whites = KEYBOARD_LAYOUT.keys.filter(function(k){ return k.type === 'white'; });
+    var blacks = KEYBOARD_LAYOUT.keys.filter(function(k){ return k.type === 'black'; });
+    var leftmostName = whites[0].name;
+
+    whites.concat(blacks).forEach(function(k){
+      var el = document.createElement('div');
+      el.className = 'pkey ' + k.type;
+      el.style.left = k.pos + 'px';
+      el.style.width = (k.type === 'white' ? WHITE_W : BLACK_W) + 'px';
+      el.style.height = (k.type === 'white' ? WHITE_H : BLACK_H) + 'px';
+      el.dataset.note = k.name;
+      if(k.name === leftmostName){
+        var label = document.createElement('div');
+        label.className = 'pkey-label';
+        label.textContent = 'START';
+        el.appendChild(label);
+      }
+      el.addEventListener('click', function(){ handleKeyClick(k.name); });
+      keysWrap.appendChild(el);
+    });
+  }
+
+  function repositionKeyboard(){
+    var field = document.getElementById('playfield');
+    var piano = document.getElementById('piano');
+    var fw = field.clientWidth, fh = field.clientHeight;
+    var pw = KEYBOARD_WIDTH + 20, ph = WHITE_H + 20;
+
+    var scale = 1;
+    if(pw > fw){ scale = Math.max(0.5, fw / pw); }
+    piano.style.transformOrigin = 'top left';
+    piano.style.transform = 'scale(' + scale + ')';
+
+    var maxX = Math.max(0, fw - pw * scale);
+    var maxY = Math.max(0, fh - ph * scale);
+    var x = Math.random() * maxX;
+    var y = Math.random() * maxY;
+    piano.style.left = x + 'px';
+    piano.style.top = y + 'px';
+  }
+
+  function flashPiano(kind, callback){
+    var piano = document.getElementById('piano');
+    piano.classList.add(kind === 'good' ? 'flash-good' : 'flash-bad');
+    setTimeout(function(){
+      piano.classList.remove('flash-good', 'flash-bad');
+      callback();
+    }, 450);
+  }
+
+  function freshCounts(){
+    var c = {};
+    TARGET_NOTES.forEach(function(n){ c[n] = 0; });
+    return c;
+  }
+
+  function refreshActiveTargets(){
+    state.activeTargets = TARGET_NOTES.filter(function(n){ return state.counts[n] < 5; });
+  }
+
+  function startLevel(level){
+    ensureAudio();
+    state.level = level;
+    state.answered = false;
+    if(state.distractorTimer){ clearTimeout(state.distractorTimer); state.distractorTimer = null; }
+    if(state.clearTimer){ clearTimeout(state.clearTimer); state.clearTimer = null; }
+
+    state.counts = freshCounts();
+    state.activeTargets = TARGET_NOTES.slice();
+    state.lastScoredTarget = null;
+
+    renderTracker();
+    renderKeyboard();
+    showScreen('screen-game');
+    repositionKeyboard();
+    showNextQuestion();
+  }
+
+  function levelIsComplete(){
+    return TARGET_NOTES.every(function(n){ return state.counts[n] >= 5; });
+  }
+
+  function showNextQuestion(){
+    if(state.distractorTimer){ clearTimeout(state.distractorTimer); state.distractorTimer = null; }
+    if(state.clearTimer){ clearTimeout(state.clearTimer); state.clearTimer = null; }
+
+    state.answered = true;
+    document.getElementById('game-staff').innerHTML = '';
+
+    state.clearTimer = setTimeout(function(){
+      state.clearTimer = null;
+      state.answered = false;
+
+      var q = pickNote(state.activeTargets);
+      q.duration = randChoice(DURATIONS);
+      state.currentQuestion = q;
+
+      vfRenderStaff(document.getElementById('game-staff'), q.note, q.clef, q.duration);
+      repositionKeyboard();
+
+      if(!q.isTarget){
+        // Distractor (bass note) shown: if the player does nothing, it just advances.
+        state.distractorTimer = setTimeout(function(){
+          if(state.answered) return;
+          state.answered = true;
+          showNextQuestion();
+        }, 2000);
+      }
+    }, 100);
+  }
+
+  function applyMistake(q){
+    if(state.level === 1){
+      if(q.isTarget){
+        state.counts[q.note] = Math.max(0, state.counts[q.note] - 1);
+      } else {
+        var totalPoints = TARGET_NOTES.reduce(function(sum, n){ return sum + state.counts[n]; }, 0);
+        if(totalPoints > 0 && state.lastScoredTarget){
+          state.counts[state.lastScoredTarget] = Math.max(0, state.counts[state.lastScoredTarget] - 1);
+        }
+      }
+    } else {
+      // Level 2: any mistake resets every note back to zero.
+      state.counts = freshCounts();
+      state.lastScoredTarget = null;
+    }
+    refreshActiveTargets();
+  }
+
+  function handleKeyClick(clickedNote){
+    if(state.answered) return;
+    if(!state.currentQuestion) return;
+    state.answered = true;
+    if(state.distractorTimer){ clearTimeout(state.distractorTimer); state.distractorTimer = null; }
+
+    playTone(noteToFreq(clickedNote), 0.25);
+
+    var q = state.currentQuestion;
+    var correct = q.isTarget && (clickedNote === q.note);
+
+    if(correct){
+      state.counts[q.note] = Math.min(5, state.counts[q.note] + 1);
+      state.lastScoredTarget = q.note;
+      refreshActiveTargets();
+    } else {
+      applyMistake(q);
+    }
+
+    updateTracker();
+
+    var won = levelIsComplete();
+
+    if(correct){
+      playSfx(won ? 'applause' : 'correct');
+    } else {
+      playSfx('wrong');
+    }
+
+    flashPiano(correct ? 'good' : 'bad', function(){
+      if(won){ endInSuccess(); }
+      else { showNextQuestion(); }
+    });
+  }
+
+  function endInSuccess(){
+    if(state.distractorTimer){ clearTimeout(state.distractorTimer); state.distractorTimer = null; }
+    if(state.clearTimer){ clearTimeout(state.clearTimer); state.clearTimer = null; }
+    var detail = document.getElementById('success-detail');
+    detail.textContent = 'You scored 5 points on all 9 notes in Level ' + state.level + '.';
+    var now = new Date();
+    document.getElementById('success-timestamp').textContent =
+      now.toLocaleDateString(undefined, { year:'numeric', month:'long', day:'numeric' }) +
+      ' \u00b7 ' + now.toLocaleTimeString(undefined, { hour:'numeric', minute:'2-digit' });
+    showScreen('screen-success');
+  }
+
+  // ================= Wiring =================
+  document.getElementById('quit-btn').addEventListener('click', function(){
+    if(state.distractorTimer){ clearTimeout(state.distractorTimer); state.distractorTimer = null; }
+    if(state.clearTimer){ clearTimeout(state.clearTimer); state.clearTimer = null; }
+    showScreen('screen-home');
+  });
+  document.getElementById('success-home-btn').addEventListener('click', function(){ showScreen('screen-home'); });
+
+  window.addEventListener('resize', function(){
+    if(document.getElementById('screen-game').classList.contains('active')){
+      repositionKeyboard();
+    }
+  });
+
+  buildHomeScreen();
+})();
+</script>
+</body>
+</html>
