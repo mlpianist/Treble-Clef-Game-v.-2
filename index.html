@@ -214,8 +214,9 @@
     return { note: randChoice(BASS_NOTES), clef: 'bass', isTarget: false };
   }
 
-  // ================= Keyboard (G2 - F5, chromatic, with black keys) =================
+  // ================= Keyboard (range randomly changes each time it moves) =================
   var NOTE_LETTERS = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+  var KEYBOARD_RANGES = [ ['C4','A5'], ['B3','G5'], ['A3','F5'] ];
 
   function noteChromaticIndex(name){
     var m = name.match(/^([A-G]#?)(\d)$/);
@@ -234,13 +235,11 @@
     return keys;
   }
 
-  var CHROMATIC = buildChromaticRange('E4', 'F5');
-
   var WHITE_W = 34, WHITE_H = 148, WHITE_SPACING = 36, BLACK_W = 20, BLACK_H = 92, BLACK_OFFSET = 25;
 
-  function buildKeyboardLayout(){
+  function buildKeyboardLayout(chromatic){
     var whiteX = 0, lastWhiteX = 0;
-    var laid = CHROMATIC.map(function(k){
+    var laid = chromatic.map(function(k){
       if(k.type === 'white'){
         var pos = whiteX;
         lastWhiteX = whiteX;
@@ -252,8 +251,17 @@
     });
     return { keys: laid, width: whiteX - (WHITE_SPACING - WHITE_W) };
   }
-  var KEYBOARD_LAYOUT = buildKeyboardLayout();
-  var KEYBOARD_WIDTH = KEYBOARD_LAYOUT.width;
+
+  // Mutable — re-picked and rebuilt every time the piano jumps to a new spot.
+  var KEYBOARD_LAYOUT = null;
+  var KEYBOARD_WIDTH = 0;
+
+  function rollNewKeyboardRange(){
+    var range = randChoice(KEYBOARD_RANGES);
+    var chromatic = buildChromaticRange(range[0], range[1]);
+    KEYBOARD_LAYOUT = buildKeyboardLayout(chromatic);
+    KEYBOARD_WIDTH = KEYBOARD_LAYOUT.width;
+  }
 
   // ================= Audio =================
   var audioCtx = null;
@@ -398,7 +406,6 @@
 
     var whites = KEYBOARD_LAYOUT.keys.filter(function(k){ return k.type === 'white'; });
     var blacks = KEYBOARD_LAYOUT.keys.filter(function(k){ return k.type === 'black'; });
-    var leftmostName = whites[0].name;
 
     whites.concat(blacks).forEach(function(k){
       var el = document.createElement('div');
@@ -407,10 +414,10 @@
       el.style.width = (k.type === 'white' ? WHITE_W : BLACK_W) + 'px';
       el.style.height = (k.type === 'white' ? WHITE_H : BLACK_H) + 'px';
       el.dataset.note = k.name;
-      if(k.name === leftmostName){
+      if(k.name === 'C4'){
         var label = document.createElement('div');
         label.className = 'pkey-label';
-        label.textContent = 'START';
+        label.textContent = 'M.C.';
         el.appendChild(label);
       }
       el.addEventListener('click', function(){ handleKeyClick(k.name); });
@@ -468,6 +475,7 @@
     state.lastScoredTarget = null;
 
     renderTracker();
+    rollNewKeyboardRange();
     renderKeyboard();
     showScreen('screen-game');
     repositionKeyboard();
@@ -494,6 +502,8 @@
       state.currentQuestion = q;
 
       vfRenderStaff(document.getElementById('game-staff'), q.note, q.clef, q.duration);
+      rollNewKeyboardRange();
+      renderKeyboard();
       repositionKeyboard();
 
       if(!q.isTarget){
